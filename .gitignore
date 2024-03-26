@@ -69,3 +69,6 @@ yarn-debug.log
 
 # Ignore Docker option files
 docker-compose.override.yml
+
+# Ignore Project Files
+possible_names.md
