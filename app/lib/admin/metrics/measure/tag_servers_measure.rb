@@ -22,7 +22,7 @@ class Admin::Metrics::Measure::TagServersMeasure < Admin::Metrics::Measure::Base
   end
 
   def sql_array
-    [sql_query_string, { start_at: @start_at, end_at: @end_at, tag_id: tag.id, earliest_status_id: earliest_status_id, latest_status_id: latest_status_id }]
+    [sql_query_string, { start_at: @start_at, end_at: @end_at, tag_id: tag.id, earliest_status_id:, latest_status_id: }]
   end
 
   def sql_query_string
@@ -40,17 +40,9 @@ class Admin::Metrics::Measure::TagServersMeasure < Admin::Metrics::Measure::Base
         SELECT COUNT(*) FROM tag_servers
       ) AS value
       FROM (
-        SELECT generate_series(date_trunc('day', :start_at::timestamp)::date, date_trunc('day', :end_at::timestamp)::date, interval '1 day') AS period
+        #{generated_series_days}
       ) as axis
     SQL
-  end
-
-  def earliest_status_id
-    Mastodon::Snowflake.id_at(@start_at, with_random: false)
-  end
-
-  def latest_status_id
-    Mastodon::Snowflake.id_at(@end_at, with_random: false)
   end
 
   def tag

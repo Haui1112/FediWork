@@ -3,7 +3,7 @@
 class FetchResourceService < BaseService
   include JsonLdHelper
 
-  ACCEPT_HEADER = 'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams", text/html;q=0.1'
+  ACCEPT_HEADER = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams", application/activity+json, text/html;q=0.1'
   ACTIVITY_STREAM_LINK_TYPES = ['application/activity+json', 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'].freeze
 
   attr_reader :response_code
@@ -12,7 +12,7 @@ class FetchResourceService < BaseService
     return if url.blank?
 
     process(url)
-  rescue HTTP::Error, OpenSSL::SSL::SSLError, Addressable::URI::InvalidURIError, Mastodon::HostValidationError, Mastodon::LengthValidationError => e
+  rescue *Mastodon::HTTP_CONNECTION_ERRORS, Addressable::URI::InvalidURIError, Mastodon::HostValidationError, Mastodon::LengthValidationError => e
     Rails.logger.debug { "Error fetching resource #{@url}: #{e}" }
     nil
   end
@@ -22,7 +22,7 @@ class FetchResourceService < BaseService
   def process(url, terminal: false)
     @url = url
 
-    perform_request { |response| process_response(response, terminal) }
+    perform_request { |response| process_response(response, terminal:) }
   end
 
   def perform_request(&block)
@@ -40,7 +40,7 @@ class FetchResourceService < BaseService
     end.perform(&block)
   end
 
-  def process_response(response, terminal = false)
+  def process_response(response, terminal: false)
     @response_code = response.code
     return nil if response.code != 200
 
@@ -73,8 +73,8 @@ class FetchResourceService < BaseService
   end
 
   def process_html(response)
-    page      = Nokogiri::HTML(response.body_with_limit)
-    json_link = page.xpath('//link[@rel="alternate"]').find { |link| ACTIVITY_STREAM_LINK_TYPES.include?(link['type']) }
+    page      = Nokogiri::HTML5(response.body_with_limit)
+    json_link = page.xpath('//link[nokogiri:link_rel_include(@rel, "alternate")]', NokogiriHandler).find { |link| ACTIVITY_STREAM_LINK_TYPES.include?(link['type']) }
 
     process(json_link['href'], terminal: true) unless json_link.nil?
   end

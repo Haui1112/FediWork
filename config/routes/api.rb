@@ -4,14 +4,27 @@ namespace :api, format: false do
   # OEmbed
   get '/oembed', to: 'oembed#show', as: :oembed
 
+  # Experimental JSON / REST API
+  namespace :v1_alpha do
+    resources :async_refreshes, only: :show
+
+    resources :collections, only: [:create]
+  end
+
   # JSON / REST API
   namespace :v1 do
-    resources :statuses, only: [:create, :show, :update, :destroy] do
+    resources :statuses, only: [:index, :create, :show, :update, :destroy] do
       scope module: :statuses do
         resources :reblogged_by, controller: :reblogged_by_accounts, only: :index
         resources :favourited_by, controller: :favourited_by_accounts, only: :index
         resource :reblog, only: :create
         post :unreblog, to: 'reblogs#destroy'
+
+        resources :quotes, only: :index do
+          member do
+            post :revoke
+          end
+        end
 
         resource :favourite, only: :create
         post :unfavourite, to: 'favourites#destroy'
@@ -28,6 +41,8 @@ namespace :api, format: false do
         resource :history, only: :show
         resource :source, only: :show
 
+        resource :interaction_policy, only: :update
+
         post :translate, to: 'translations#create'
       end
 
@@ -39,19 +54,22 @@ namespace :api, format: false do
     namespace :timelines do
       resource :home, only: :show, controller: :home
       resource :public, only: :show, controller: :public
+      resource :link, only: :show, controller: :link
       resources :tag, only: :show
       resources :list, only: :show
     end
 
-    get '/streaming', to: 'streaming#index'
-    get '/streaming/(*any)', to: 'streaming#index'
+    with_options to: 'streaming#index' do
+      get '/streaming'
+      get '/streaming/(*any)'
+    end
 
     resources :custom_emojis, only: [:index]
     resources :suggestions, only: [:index, :destroy]
     resources :scheduled_statuses, only: [:index, :show, :update, :destroy]
     resources :preferences, only: [:index]
 
-    resources :annual_reports, only: [:index] do
+    resources :annual_reports, only: [:index, :show] do
       member do
         post :read
       end
@@ -67,23 +85,6 @@ namespace :api, format: false do
       end
     end
 
-    # namespace :crypto do
-    #   resources :deliveries, only: :create
-
-    #   namespace :keys do
-    #     resource :upload, only: [:create]
-    #     resource :query,  only: [:create]
-    #     resource :claim,  only: [:create]
-    #     resource :count,  only: [:show]
-    #   end
-
-    #   resources :encrypted_messages, only: [:index] do
-    #     collection do
-    #       post :clear
-    #     end
-    #   end
-    # end
-
     resources :conversations, only: [:index, :destroy] do
       member do
         post :read
@@ -91,7 +92,7 @@ namespace :api, format: false do
       end
     end
 
-    resources :media, only: [:create, :update, :show]
+    resources :media, only: [:create, :update, :show, :destroy]
     resources :blocks, only: [:index]
     resources :mutes, only: [:index]
     resources :favourites, only: [:index]
@@ -130,15 +131,22 @@ namespace :api, format: false do
         resources :rules, only: [:index]
         resources :domain_blocks, only: [:index]
         resource :privacy_policy, only: [:show]
+        resource :terms_of_service, only: [:show]
         resource :extended_description, only: [:show]
         resource :translation_languages, only: [:show]
         resource :languages, only: [:show]
         resource :activity, only: [:show], controller: :activity
+
+        get '/terms_of_service/:date', to: 'terms_of_services#show'
       end
     end
 
     namespace :peers do
       get :search, to: 'search#index'
+    end
+
+    namespace :domain_blocks do
+      resource :preview, only: [:show]
     end
 
     resource :domain_blocks, only: [:show, :create, :destroy]
@@ -154,6 +162,12 @@ namespace :api, format: false do
 
     namespace :notifications do
       resources :requests, only: [:index, :show] do
+        collection do
+          post :accept, to: 'requests#accept_bulk'
+          post :dismiss, to: 'requests#dismiss_bulk'
+          get :merged, to: 'requests#merged?'
+        end
+
         member do
           post :accept
           post :dismiss
@@ -166,6 +180,7 @@ namespace :api, format: false do
     resources :notifications, only: [:index, :show] do
       collection do
         post :clear
+        get :unread_count
       end
 
       member do
@@ -182,7 +197,7 @@ namespace :api, format: false do
       resources :familiar_followers, only: :index
     end
 
-    resources :accounts, only: [:create, :show] do
+    resources :accounts, only: [:index, :create, :show] do
       scope module: :accounts do
         resources :statuses, only: :index
         resources :followers, only: :index, controller: :follower_accounts
@@ -190,6 +205,7 @@ namespace :api, format: false do
         resources :lists, only: :index
         resources :identity_proofs, only: :index
         resources :featured_tags, only: :index
+        resources :endorsements, only: :index
       end
 
       member do
@@ -202,22 +218,28 @@ namespace :api, format: false do
         post :unmute
       end
 
-      resource :pin, only: :create, controller: 'accounts/pins'
-      post :unpin, to: 'accounts/pins#destroy'
-      resource :note, only: :create, controller: 'accounts/notes'
+      scope module: :accounts do
+        post :pin, to: 'endorsements#create'
+        post :endorse, to: 'endorsements#create'
+        post :unpin, to: 'endorsements#destroy'
+        post :unendorse, to: 'endorsements#destroy'
+        resource :note, only: :create
+      end
     end
 
     resources :tags, only: [:show] do
       member do
         post :follow
         post :unfollow
+        post :feature
+        post :unfeature
       end
     end
 
     resources :followed_tags, only: [:index]
 
     resources :lists, only: [:index, :create, :show, :update, :destroy] do
-      resource :accounts, only: [:show, :create, :destroy], controller: 'lists/accounts'
+      resource :accounts, only: [:show, :create, :destroy], module: :lists
     end
 
     namespace :featured_tags do
@@ -226,8 +248,8 @@ namespace :api, format: false do
 
     resources :featured_tags, only: [:index, :create, :destroy]
 
-    resources :polls, only: [:create, :show] do
-      resources :votes, only: :create, controller: 'polls/votes'
+    resources :polls, only: [:show] do
+      resources :votes, only: :create, module: :polls
     end
 
     namespace :push do
@@ -313,8 +335,10 @@ namespace :api, format: false do
     resources :suggestions, only: [:index]
     resource :instance, only: [:show]
     resources :filters, only: [:index, :create, :show, :update, :destroy] do
-      resources :keywords, only: [:index, :create], controller: 'filters/keywords'
-      resources :statuses, only: [:index, :create], controller: 'filters/statuses'
+      scope module: :filters do
+        resources :keywords, only: [:index, :create]
+        resources :statuses, only: [:index, :create]
+      end
     end
 
     namespace :filters do
@@ -325,15 +349,28 @@ namespace :api, format: false do
     namespace :admin do
       resources :accounts, only: [:index]
     end
+
+    namespace :notifications do
+      resource :policy, only: [:show, :update]
+    end
+
+    resources :notifications, param: :group_key, only: [:index, :show] do
+      collection do
+        post :clear
+        get :unread_count
+      end
+
+      member do
+        post :dismiss
+      end
+
+      resources :accounts, only: [:index], module: :notifications
+    end
   end
 
   namespace :web do
     resource :settings, only: [:update]
     resources :embeds, only: [:show]
-    resources :push_subscriptions, only: [:create] do
-      member do
-        put :update
-      end
-    end
+    resources :push_subscriptions, only: [:create, :destroy, :update]
   end
 end

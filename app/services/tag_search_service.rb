@@ -2,15 +2,25 @@
 
 class TagSearchService < BaseService
   def call(query, options = {})
-    @query   = query.strip.delete_prefix('#')
-    @offset  = options.delete(:offset).to_i
-    @limit   = options.delete(:limit).to_i
-    @options = options
+    MastodonOTELTracer.in_span('TagSearchService#call') do |span|
+      @query   = query.strip.delete_prefix('#')
+      @offset  = options.delete(:offset).to_i
+      @limit   = options.delete(:limit).to_i
+      @options = options
 
-    results   = from_elasticsearch if Chewy.enabled?
-    results ||= from_database
+      span.add_attributes(
+        'search.offset' => @offset,
+        'search.limit' => @limit,
+        'search.backend' => Chewy.enabled? ? 'elasticsearch' : 'database'
+      )
 
-    results
+      results   = from_elasticsearch if Chewy.enabled?
+      results ||= from_database
+
+      span.set_attribute('search.results.count', results.size)
+
+      results
+    end
   end
 
   private
@@ -20,7 +30,7 @@ class TagSearchService < BaseService
     definition = definition.filter(elastic_search_filter) if @options[:exclude_unreviewed]
 
     ensure_exact_match(definition.limit(@limit).offset(@offset).objects.compact)
-  rescue Faraday::ConnectionFailed, Parslet::ParseFailed
+  rescue Faraday::ConnectionFailed, Parslet::ParseFailed, Errno::ENETUNREACH
     nil
   end
 

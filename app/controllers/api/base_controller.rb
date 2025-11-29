@@ -9,6 +9,7 @@ class Api::BaseController < ApplicationController
   include Api::CachingConcern
   include Api::ContentSecurityPolicy
   include Api::ErrorHandling
+  include Api::Pagination
 
   skip_before_action :require_functional!, unless: :limited_federation_mode?
 
@@ -29,25 +30,10 @@ class Api::BaseController < ApplicationController
 
   protected
 
-  def pagination_max_id
-    pagination_collection.last.id
-  end
-
-  def pagination_since_id
-    pagination_collection.first.id
-  end
-
-  def set_pagination_headers(next_path = nil, prev_path = nil)
-    links = []
-    links << [next_path, [%w(rel next)]] if next_path
-    links << [prev_path, [%w(rel prev)]] if prev_path
-    response.headers['Link'] = LinkHeader.new(links) unless links.empty?
-  end
-
-  def limit_param(default_limit)
+  def limit_param(default_limit, max_limit = nil)
     return default_limit unless params[:limit]
 
-    [params[:limit].to_i.abs, default_limit * 2].min
+    [params[:limit].to_i.abs, max_limit || (default_limit * 2)].min
   end
 
   def params_slice(*keys)
@@ -64,16 +50,16 @@ class Api::BaseController < ApplicationController
     nil
   end
 
+  def require_client_credentials!
+    render json: { error: 'This method requires an client credentials authentication' }, status: 403 if doorkeeper_token.resource_owner_id.present?
+  end
+
   def require_authenticated_user!
     render json: { error: 'This method requires an authenticated user' }, status: 401 unless current_user
   end
 
   def require_not_suspended!
     render json: { error: 'Your login is currently disabled' }, status: 403 if current_user&.account&.unavailable?
-  end
-
-  def require_valid_pagination_options!
-    render json: { error: 'Pagination values for `offset` and `limit` must be positive' }, status: 400 if pagination_options_invalid?
   end
 
   def require_user!
@@ -90,6 +76,13 @@ class Api::BaseController < ApplicationController
     end
   end
 
+  # Redefine `require_functional!` to properly output JSON instead of HTML redirects
+  def require_functional!
+    return if current_user.functional?
+
+    require_user!
+  end
+
   def render_empty
     render json: {}, status: 200
   end
@@ -99,18 +92,10 @@ class Api::BaseController < ApplicationController
   end
 
   def disallow_unauthenticated_api_access?
-    ENV['DISALLOW_UNAUTHENTICATED_API_ACCESS'] == 'true' || Rails.configuration.x.limited_federation_mode
+    ENV['DISALLOW_UNAUTHENTICATED_API_ACCESS'] == 'true' || Rails.configuration.x.mastodon.limited_federation_mode
   end
 
   private
-
-  def insert_pagination_headers
-    set_pagination_headers(next_path, prev_path)
-  end
-
-  def pagination_options_invalid?
-    params.slice(:limit, :offset).values.map(&:to_i).any?(&:negative?)
-  end
 
   def respond_with_error(code)
     render json: { error: Rack::Utils::HTTP_STATUS_CODES[code] }, status: code

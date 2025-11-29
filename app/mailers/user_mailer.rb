@@ -1,17 +1,20 @@
 # frozen_string_literal: true
 
 class UserMailer < Devise::Mailer
+  include BulkMailSettingsConcern
+
   layout 'mailer'
 
   helper :accounts
   helper :application
-  helper :mascot
   helper :formatting
   helper :instance
   helper :routing
   helper :statuses
 
   before_action :set_instance
+
+  after_action :use_bulk_mail_delivery_settings, only: [:announcement_published, :terms_of_service_changed]
 
   default to: -> { @resource.email }
 
@@ -34,7 +37,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -44,7 +47,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -54,7 +57,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -64,7 +67,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -74,7 +77,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -84,7 +87,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -94,7 +97,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -104,7 +107,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: default_devise_subject
     end
   end
@@ -115,7 +118,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: I18n.t('devise.mailer.webauthn_credential.added.subject')
     end
   end
@@ -126,7 +129,7 @@ class UserMailer < Devise::Mailer
 
     return unless @resource.active_for_authentication?
 
-    I18n.with_locale(locale) do
+    I18n.with_locale(locale(use_current_locale: true)) do
       mail subject: I18n.t('devise.mailer.webauthn_credential.deleted.subject')
     end
   end
@@ -210,6 +213,25 @@ class UserMailer < Devise::Mailer
     end
   end
 
+  def terms_of_service_changed(user, terms_of_service)
+    @resource = user
+    @terms_of_service = terms_of_service
+    @markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML, escape_html: true, no_images: true)
+
+    I18n.with_locale(locale) do
+      mail subject: default_i18n_subject
+    end
+  end
+
+  def announcement_published(user, announcement)
+    @resource = user
+    @announcement = announcement
+
+    I18n.with_locale(locale) do
+      mail subject: default_i18n_subject
+    end
+  end
+
   private
 
   def default_devise_subject
@@ -220,7 +242,7 @@ class UserMailer < Devise::Mailer
     @instance = Rails.configuration.x.local_domain
   end
 
-  def locale
-    @resource.locale.presence || I18n.locale || I18n.default_locale
+  def locale(use_current_locale: false)
+    @resource.locale.presence || (use_current_locale && I18n.locale) || I18n.default_locale
   end
 end

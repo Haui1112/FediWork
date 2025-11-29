@@ -8,18 +8,25 @@ class AnnualReport
     AnnualReport::TypeDistribution,
     AnnualReport::TopStatuses,
     AnnualReport::MostUsedApps,
-    AnnualReport::CommonlyInteractedWithAccounts,
     AnnualReport::TimeSeries,
     AnnualReport::TopHashtags,
-    AnnualReport::MostRebloggedAccounts,
-    AnnualReport::Percentiles,
   ].freeze
 
-  SCHEMA = 1
+  SCHEMA = 2
+
+  def self.table_name_prefix
+    'annual_report_'
+  end
 
   def initialize(account, year)
     @account = account
     @year = year
+  end
+
+  def eligible?
+    with_read_replica do
+      SOURCES.all? { |klass| klass.new(@account, @year).eligible? }
+    end
   end
 
   def generate

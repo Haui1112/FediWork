@@ -3,10 +3,7 @@
 require 'rails_helper'
 
 RSpec.describe 'API V1 Announcements' do
-  let(:user)    { Fabricate(:user) }
-  let(:scopes)  { 'read' }
-  let(:token)   { Fabricate(:accessible_access_token, resource_owner_id: user.id, scopes: scopes) }
-  let(:headers) { { 'Authorization' => "Bearer #{token.token}" } }
+  include_context 'with API authentication', oauth_scopes: 'read'
 
   let!(:announcement) { Fabricate(:announcement) }
 
@@ -15,7 +12,9 @@ RSpec.describe 'API V1 Announcements' do
       it 'returns http unprocessable entity' do
         get '/api/v1/announcements'
 
-        expect(response).to have_http_status 422
+        expect(response).to have_http_status(422)
+        expect(response.content_type)
+          .to start_with('application/json')
       end
     end
 
@@ -26,6 +25,8 @@ RSpec.describe 'API V1 Announcements' do
 
       it 'returns http success' do
         expect(response).to have_http_status(200)
+        expect(response.content_type)
+          .to start_with('application/json')
       end
     end
   end
@@ -35,7 +36,9 @@ RSpec.describe 'API V1 Announcements' do
       it 'returns http unauthorized' do
         post "/api/v1/announcements/#{announcement.id}/dismiss"
 
-        expect(response).to have_http_status 401
+        expect(response).to have_http_status(401)
+        expect(response.content_type)
+          .to start_with('application/json')
       end
     end
 
@@ -48,6 +51,8 @@ RSpec.describe 'API V1 Announcements' do
 
       it 'dismisses announcement', :aggregate_failures do
         expect(response).to have_http_status(200)
+        expect(response.content_type)
+          .to start_with('application/json')
         expect(announcement.announcement_mutes.find_by(account: user.account)).to_not be_nil
       end
     end

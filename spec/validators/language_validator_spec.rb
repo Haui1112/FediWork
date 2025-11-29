@@ -2,10 +2,11 @@
 
 require 'rails_helper'
 
-describe LanguageValidator do
+RSpec.describe LanguageValidator do
   let(:record_class) do
     Class.new do
       include ActiveModel::Validations
+
       attr_accessor :locale
 
       validates :locale, language: true

@@ -12,7 +12,7 @@ class ActivityPub::RepliesController < ActivityPub::BaseController
   before_action :set_replies
 
   def index
-    expires_in 0, public: public_fetch_mode?
+    expires_in 0, public: @status.distributable? && public_fetch_mode?
     render json: replies_collection_presenter, serializer: ActivityPub::CollectionSerializer, adapter: ActivityPub::Adapter, content_type: 'application/activity+json', skip_activities: true
   end
 
@@ -31,13 +31,13 @@ class ActivityPub::RepliesController < ActivityPub::BaseController
 
   def set_replies
     @replies = only_other_accounts? ? Status.where.not(account_id: @account.id).joins(:account).merge(Account.without_suspended) : @account.statuses
-    @replies = @replies.where(in_reply_to_id: @status.id, visibility: [:public, :unlisted])
+    @replies = @replies.distributable_visibility.where(in_reply_to_id: @status.id)
     @replies = @replies.paginate_by_min_id(DESCENDANTS_LIMIT, params[:min_id])
   end
 
   def replies_collection_presenter
     page = ActivityPub::CollectionPresenter.new(
-      id: account_status_replies_url(@account, @status, page_params),
+      id: ActivityPub::TagManager.instance.replies_uri_for(@status, page_params),
       type: :unordered,
       part_of: account_status_replies_url(@account, @status),
       next: next_page,
@@ -47,7 +47,7 @@ class ActivityPub::RepliesController < ActivityPub::BaseController
     return page if page_requested?
 
     ActivityPub::CollectionPresenter.new(
-      id: account_status_replies_url(@account, @status),
+      id: ActivityPub::TagManager.instance.replies_uri_for(@status),
       type: :unordered,
       first: page
     )
@@ -66,8 +66,7 @@ class ActivityPub::RepliesController < ActivityPub::BaseController
       # Only consider remote accounts
       return nil if @replies.size < DESCENDANTS_LIMIT
 
-      account_status_replies_url(
-        @account,
+      ActivityPub::TagManager.instance.replies_uri_for(
         @status,
         page: true,
         min_id: @replies&.last&.id,
@@ -77,8 +76,7 @@ class ActivityPub::RepliesController < ActivityPub::BaseController
       # For now, we're serving only self-replies, but next page might be other accounts
       next_only_other_accounts = @replies&.last&.account_id != @account.id || @replies.size < DESCENDANTS_LIMIT
 
-      account_status_replies_url(
-        @account,
+      ActivityPub::TagManager.instance.replies_uri_for(
         @status,
         page: true,
         min_id: next_only_other_accounts ? nil : @replies&.last&.id,

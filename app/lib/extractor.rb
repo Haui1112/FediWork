@@ -54,7 +54,7 @@ module Extractor
   end
 
   def extract_hashtags_with_indices(text, _options = {})
-    return [] unless text&.index('#')
+    return [] unless text&.index(/[#＃]/)
 
     possible_entries = []
 
@@ -84,10 +84,6 @@ module Extractor
     end
 
     possible_entries
-  end
-
-  def extract_cashtags_with_indices(_text)
-    []
   end
 
   def extract_extra_uris_with_indices(text)

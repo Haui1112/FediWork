@@ -1,3 +1,17 @@
+:root {
+  /* TEXT TOKENS */
+
+  --color-text-primary: var(--color-grey-50);
+  --color-text-secondary: var(--color-grey-300);
+  --color-text-tertiary: var(--color-grey-400);
+  --color-text-brand: var(--color-indigo-300);
+  --color-text-status-links: var(--color-text-brand);
+
+  /* BORDER TOKENS */
+
+  --border-strength-primary: 18%;
+}
+
 .status__content a,
 .reply-indicator__content a,
 .edit-indicator__content a,
@@ -27,20 +41,6 @@
       }
     }
   }
-}
-
-.status__content a,
-.reply-indicator__content a,
-.edit-indicator__content a {
-  color: $highlight-text-color;
-}
-
-.nothing-here {
-  color: $darker-text-color;
-}
-
-.report-dialog-modal__textarea::placeholder {
-  color: $inverted-text-color;
 }
 
 .link-button:disabled {

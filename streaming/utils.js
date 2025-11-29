@@ -13,11 +13,15 @@ const FALSE_VALUES = [
 ];
 
 /**
- * @param {any} value
+ * @typedef {typeof FALSE_VALUES[number]} FalseValue
+ */
+
+/**
+ * @param {unknown} value
  * @returns {boolean}
  */
 export function isTruthy(value) {
-  return value && !FALSE_VALUES.includes(value);
+  return !!value && !FALSE_VALUES.includes(/** @type {FalseValue} */ (value));
 }
 
 /**
@@ -57,5 +61,25 @@ export function firstParam(arrayOrString) {
     return arrayOrString[0];
   } else {
     return arrayOrString;
+  }
+}
+
+/**
+ * Takes an environment variable that should be an integer, attempts to parse
+ * it falling back to a default if not set, and handles errors parsing.
+ * @param {string|undefined} value
+ * @param {number} defaultValue
+ * @param {string} variableName
+ * @returns {number}
+ */
+export function parseIntFromEnvValue(value, defaultValue, variableName) {
+  if (typeof value === 'string' && value.length > 0) {
+    const parsedValue = parseInt(value, 10);
+    if (isNaN(parsedValue)) {
+      throw new Error(`Invalid ${variableName} environment variable: ${value}`);
+    }
+    return parsedValue;
+  } else {
+    return defaultValue;
   }
 }

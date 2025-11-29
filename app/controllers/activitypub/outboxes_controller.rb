@@ -41,12 +41,8 @@ class ActivityPub::OutboxesController < ActivityPub::BaseController
     end
   end
 
-  def outbox_url(**kwargs)
-    if params[:account_username].present?
-      account_outbox_url(@account, **kwargs)
-    else
-      instance_actor_outbox_url(**kwargs)
-    end
+  def outbox_url(...)
+    ActivityPub::TagManager.instance.outbox_uri_for(@account, ...)
   end
 
   def next_page
@@ -60,7 +56,7 @@ class ActivityPub::OutboxesController < ActivityPub::BaseController
   def set_statuses
     return unless page_requested?
 
-    @statuses = cache_collection_paginated_by_id(
+    @statuses = preload_collection_paginated_by_id(
       AccountStatusesFilter.new(@account, signed_request_account).results,
       Status,
       LIMIT,
@@ -77,6 +73,8 @@ class ActivityPub::OutboxesController < ActivityPub::BaseController
   end
 
   def set_account
-    @account = params[:account_username].present? ? Account.find_local!(username_param) : Account.representative
+    return super if params[:account_username].present? || params[:account_id].present?
+
+    @account = Account.representative
   end
 end

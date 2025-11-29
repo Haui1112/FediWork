@@ -7,7 +7,7 @@ class TextFormatter
 
   URL_PREFIX_REGEX = %r{\A(https?://(www\.)?|xmpp:)}
 
-  DEFAULT_REL = %w(nofollow noopener noreferrer).freeze
+  DEFAULT_REL = %w(nofollow noopener).freeze
 
   DEFAULT_OPTIONS = {
     multiline: true,
@@ -31,7 +31,7 @@ class TextFormatter
   end
 
   def to_s
-    return ''.html_safe if text.blank?
+    return add_quote_fallback('').html_safe if text.blank? # rubocop:disable Rails/OutputSafety
 
     html = rewrite do |entity|
       if entity[:url]
@@ -44,6 +44,7 @@ class TextFormatter
     end
 
     html = simple_format(html, {}, sanitize: false).delete("\n") if multiline?
+    html = add_quote_fallback(html) if options[:quoted_status].present?
 
     html.html_safe # rubocop:disable Rails/OutputSafety
   end
@@ -58,8 +59,14 @@ class TextFormatter
 
       prefix      = url.match(URL_PREFIX_REGEX).to_s
       display_url = url[prefix.length, 30]
-      suffix      = url[prefix.length + 30..]
+      suffix      = url[(prefix.length + 30)..]
       cutoff      = url[prefix.length..].length > 30
+
+      if suffix && suffix.length == 1 # revert truncation to account for ellipsis
+        display_url += suffix
+        suffix = nil
+        cutoff = false
+      end
 
       tag.a href: url, target: '_blank', rel: rel.join(' '), translate: 'no' do
         tag.span(prefix, class: 'invisible') +
@@ -165,5 +172,16 @@ class TextFormatter
 
   def preloaded_accounts?
     preloaded_accounts.present?
+  end
+
+  def add_quote_fallback(html)
+    return html if options[:quoted_status].nil?
+
+    url = ActivityPub::TagManager.instance.url_for(options[:quoted_status]) || ActivityPub::TagManager.instance.uri_for(options[:quoted_status])
+    return html if url.blank? || html.include?(url)
+
+    <<~HTML.squish
+      <p class="quote-inline">RE: #{TextFormatter.shortened_link(url)}</p>#{html}
+    HTML
   end
 end

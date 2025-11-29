@@ -11,14 +11,15 @@
     - if storage_host?
       %link{ rel: 'dns-prefetch', href: storage_host }/
 
-    = stylesheet_pack_tag 'common', media: 'all', crossorigin: 'anonymous'
-    = theme_style_tags Setting.theme # Use the admin-configured theme here, even if logged in
-    = javascript_pack_tag 'common', integrity: true, crossorigin: 'anonymous'
-    = preload_pack_asset "locale/#{I18n.locale}-json.js"
+    = vite_client_tag
+    = vite_react_refresh_tag
+    = vite_polyfills_tag
+    = theme_style_tags 'mastodon-light'
+    = vite_preload_file_tag "mastodon/locales/#{I18n.locale}.json"
     = render_initial_state
-    = javascript_pack_tag 'public', integrity: true, crossorigin: 'anonymous'
+    = vite_typescript_tag 'embed.tsx', integrity: true, crossorigin: 'anonymous'
   %body.embed
     = yield
 
-    .logo-resources{ 'tabindex' => '-1', 'inert' => true, 'aria-hidden' => true }
+    .logo-resources{ 'tabindex' => '-1', 'inert' => true, 'aria-hidden' => 'true' }
       = inline_svg_tag 'logo-symbol-icon.svg'

@@ -63,6 +63,47 @@ RSpec.describe ActivityPub::ProcessAccountService do
     end
   end
 
+  context 'with attribution domains' do
+    let(:payload) do
+      {
+        id: 'https://foo.test',
+        type: 'Actor',
+        inbox: 'https://foo.test/inbox',
+        attributionDomains: [
+          'example.com',
+        ],
+      }.with_indifferent_access
+    end
+
+    it 'parses attribution domains' do
+      account = subject.call('alice', 'example.com', payload)
+
+      expect(account.attribution_domains)
+        .to match_array(%w(example.com))
+    end
+  end
+
+  context 'with inlined feature collection' do
+    let(:payload) do
+      {
+        id: 'https://foo.test',
+        type: 'Actor',
+        inbox: 'https://foo.test/inbox',
+        featured: {
+          type: 'OrderedCollection',
+          orderedItems: ['https://example.com/statuses/1'],
+        },
+      }.deep_stringify_keys
+    end
+
+    it 'queues featured collection synchronization', :aggregate_failures do
+      account = subject.call('alice', 'example.com', payload)
+
+      expect(account.featured_collection_url).to eq ''
+      expect(ActivityPub::SynchronizeFeaturedCollectionWorker).to have_enqueued_sidekiq_job(account.id, { 'hashtag' => true, 'request_id' => anything, 'collection' => payload['featured'] })
+    end
+  end
+
   context 'when account is not suspended' do
     subject { described_class.new.call(account.username, account.domain, payload) }
 
@@ -215,7 +256,7 @@ RSpec.describe ActivityPub::ProcessAccountService do
         }.with_indifferent_access
         webfinger = {
           subject: "acct:user#{i}@foo.test",
-          links: [{ rel: 'self', href: "https://foo.test/users/#{i}" }],
+          links: [{ rel: 'self', href: "https://foo.test/users/#{i}", type: 'application/activity+json' }],
         }.with_indifferent_access
         stub_request(:get, "https://foo.test/users/#{i}").to_return(status: 200, body: actor_json.to_json, headers: { 'Content-Type': 'application/activity+json' })
         stub_request(:get, "https://foo.test/users/#{i}/featured").to_return(status: 200, body: featured_json.to_json, headers: { 'Content-Type': 'application/activity+json' })
@@ -224,7 +265,7 @@ RSpec.describe ActivityPub::ProcessAccountService do
       end
     end
 
-    it 'creates accounts without exceeding rate limit', :sidekiq_inline do
+    it 'creates accounts without exceeding rate limit', :inline_jobs do
       expect { subject.call('user1', 'foo.test', payload) }
         .to create_some_remote_accounts
         .and create_fewer_than_rate_limit_accounts

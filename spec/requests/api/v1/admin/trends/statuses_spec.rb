@@ -2,20 +2,19 @@
 
 require 'rails_helper'
 
-describe 'API V1 Admin Trends Statuses' do
-  let(:role)   { UserRole.find_by(name: 'Admin') }
-  let(:user)   { Fabricate(:user, role: role) }
-  let(:scopes) { 'admin:read admin:write' }
-  let(:token)   { Fabricate(:accessible_access_token, resource_owner_id: user.id, scopes: scopes) }
+RSpec.describe 'API V1 Admin Trends Statuses' do
+  include_context 'with API authentication', user_fabricator: :admin_user, oauth_scopes: 'admin:read admin:write'
+
   let(:account) { Fabricate(:account) }
   let(:status)  { Fabricate(:status) }
-  let(:headers) { { 'Authorization' => "Bearer #{token.token}" } }
 
   describe 'GET /api/v1/admin/trends/statuses' do
     it 'returns http success' do
       get '/api/v1/admin/trends/statuses', params: { account_id: account.id, limit: 2 }, headers: headers
 
       expect(response).to have_http_status(200)
+      expect(response.content_type)
+        .to start_with('application/json')
     end
   end
 
@@ -29,6 +28,8 @@ describe 'API V1 Admin Trends Statuses' do
 
     it 'returns http success' do
       expect(response).to have_http_status(200)
+      expect(response.content_type)
+        .to start_with('application/json')
     end
   end
 
@@ -42,6 +43,8 @@ describe 'API V1 Admin Trends Statuses' do
 
     it 'returns http success' do
       expect(response).to have_http_status(200)
+      expect(response.content_type)
+        .to start_with('application/json')
     end
   end
 end

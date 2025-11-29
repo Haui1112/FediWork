@@ -13,6 +13,7 @@ import { cancelReplyCompose } from 'mastodon/actions/compose';
 import { Icon } from 'mastodon/components/icon';
 import { IconButton } from 'mastodon/components/icon_button';
 import { RelativeTimestamp } from 'mastodon/components/relative_timestamp';
+import { EmbeddedStatusContent } from 'mastodon/features/notifications_v2/components/embedded_status_content';
 
 const messages = defineMessages({
   cancel: { id: 'reply_indicator.cancel', defaultMessage: 'Cancel' },
@@ -33,8 +34,6 @@ export const EditIndicator = () => {
     return null;
   }
 
-  const content = { __html: status.get('contentHtml') };
-
   return (
     <div className='edit-indicator'>
       <div className='edit-indicator__header'>
@@ -49,7 +48,10 @@ export const EditIndicator = () => {
         </div>
       </div>
 
-      <div className='edit-indicator__content translate' dangerouslySetInnerHTML={content} />
+      <EmbeddedStatusContent
+        className='edit-indicator__content translate'
+        status={status}
+      />
 
       {(status.get('poll') || status.get('media_attachments').size > 0) && (
         <div className='edit-indicator__attachments'>
