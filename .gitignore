@@ -71,10 +71,9 @@ yarn-debug.log
 # Ignore Docker option files
 docker-compose.override.yml
 
-<<<<<<< HEAD
 # Ignore Project Files
 possible_names.md
-=======
+
 # Ignore dotenv .local files
 .env*.local
 
@@ -83,4 +82,3 @@ possible_names.md
 
 *storybook.log
 storybook-static
->>>>>>> upstream/main
